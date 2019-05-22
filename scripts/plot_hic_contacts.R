@@ -53,9 +53,12 @@ getContactsStatMat <- function(x){
   lab <- c("n.a.rmdup", "n.b.dup", "n.c.trans", "n.d.cis.sr", "n.e.cis.lr")
   mmat <- data.frame(cbind(lab, p, count, perc), stringsAsFactors=FALSE)
   mmat$pos <- as.vector(unlist(sapply(unique(mmat$p), function(i){
-  idx <-  which(mmat$p==i)
-  cumsum(as.numeric(as.character(mmat$count[idx])))-as.numeric(as.character(mmat$count[idx]))/2
+      idx <-  which(mmat$p==i)
+      values <- as.numeric(as.character(mmat$count[idx]))
+      cumsum(values)-values/2
   })))  
+
+  mmat$lab <- factor(mmat$lab, levels=c("n.b.dup", "n.a.rmdup", "n.e.cis.lr", "n.d.cis.sr", "n.c.trans"))
   mmat
 }
 
@@ -70,20 +73,20 @@ plotDedup <- function(mat, sampleName="", legend=TRUE){
   require(ggplot2)
   require(grid)
   
-  sel.colours <- brewer.pal(12,"Paired")[c(7,8,3,1,2)] 
+  sel.colours <- brewer.pal(12,"Paired")[c(8,7,2,1,3)] 
 
-  gp <- ggplot(mat, aes(x=p, as.numeric(count), fill=as.character(lab))) +
-    geom_bar(width=.7,stat="identity", colour="gray") +
+  gp <- ggplot(mat, aes(x=p, as.numeric(count), fill=lab)) +
+    geom_bar(width=.7,stat="identity", colour="gray") + theme_minimal() + 
       theme(axis.title=element_text(face="bold", size=6), axis.ticks = element_blank(), axis.text.y = element_text(size=5), axis.text.x = element_blank()) +
           xlab(sampleName) + ylab("Read Counts")  +
             geom_text(aes(x=p, y=as.numeric(pos), label=paste(perc,"%")),fontface="bold", size=2) +
                 ggtitle("Valid Pairs - duplicates and contact ranges") + theme(plot.title = element_text(lineheight=.8, face="bold", size=6))
 
   if (legend){
-    gp = gp + scale_fill_manual(values=sel.colours, labels = c("Valid Interactions (%)",  "Duplicates (%)", "Trans Contacts (%)", "Cis short-range (<20kb) (%)",
-                                                      "Cis long-range contacts (>20kb) (%)")) + guides(fill=guide_legend(title="")) +
-                                                        theme(plot.margin=unit(x=c(1,0,0,0), units="cm"), legend.position="bottom", legend.margin=unit(.5,"cm"),
-                                                              legend.text=element_text(size=4))
+    gp = gp + scale_fill_manual(values=sel.colours, labels = c("Duplicates (%)", "Valid Interactions (%)", "Cis long-range (>20kb) (%)", "Cis short-range contacts (<20kb) (%)", "Trans Contacts (%)")) +
+                                    guides(fill=guide_legend(title="")) +
+                                        theme(plot.margin=unit(x=c(1,0,0,0), units="cm"), legend.position="right", legend.margin=margin(.5,unit="cm"),
+                                              legend.text=element_text(size=5))
   }else{
     gp = gp + scale_fill_manual(values=sel.colours) + theme(plot.margin=unit(c(1,0,1.9,0),"cm"))+ guides(fill=FALSE)
   }
@@ -96,7 +99,7 @@ plotDistanceHist <- function(mat, sampleName="", n=""){
   require(grid)
   
   gp <- ggplot(mat, aes(x=mids, y=allcounts))+
-     geom_bar(stat="identity", alpha=.5, color="darkgray", fill="blue4")+
+     geom_bar(stat="identity", alpha=.5, color="darkgray", fill="blue4")+theme_minimal()+
       theme(axis.title=element_text(face="bold", size=6), axis.text.y = element_text(size=5), axis.text.x = element_text(size=5)) + 
       scale_x_continuous(breaks=c(seq(0, 500, by=50), seq(from = 600, to = 1500, by = 200), 1500), labels=c(seq(0, 500, by=50), seq(from = 600, to = 1500, by = 200), ">1500"))+
       xlab(sampleName) + ylab(paste0("Read Counts - subset of ", n, " interactions")) +
@@ -112,7 +115,7 @@ gp
 ####################################
 
 ## Get HiC stat files for all fastq files of a given sample
-mergestat <- list.files(path=hicDir, pattern=paste0("^[[:print:]]*\\.mergestat$"), full.names=TRUE)
+mergestat <- list.files(path=statsDir, pattern=paste0("^[[:print:]]*\\.mergestat$"), full.names=TRUE)
 print(mergestat)
 stopifnot(length(mergestat)>0)
 

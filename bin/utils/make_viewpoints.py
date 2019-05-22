@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # HiC-Pro
 # Copyleft 2015 Institut Curie
@@ -26,7 +26,7 @@ def usage():
     print "-f/--fragmentFile <Restriction fragment file (BED)>"
     print "-t/--target <Target file for viewpoints (BED)>"
     print "[-e/--exclusion] <Size of the regions upstream/downstream the capture sites to discard>"
-    print "[-o/--outputDir] <Output directory. Default is current directory>"
+    print "[-o/--output] <Output file. Default is stdout>"
     print "[-v/--verbose] <Verbose>"
     print "[-h/--help] <Help>"
     return
@@ -42,9 +42,10 @@ def get_args():
              "fragmentsFile=",
              "targetFile=",
              "exclusionSize=",
-             "outputDir=", 
+             "output=", 
              "verbose", "help"])
-    except getopt.GetoptError:
+    except getopt.GetoptError, err:
+        print "GetoptError: " + str(err) + "\n"
         usage()
         sys.exit(-1)
     return opts
@@ -64,16 +65,17 @@ def load_BED(in_file, exclusionSize=0, verbose=False):
     x = {}
     x_ex = {}
     if verbose:
-        print "## Loading BED file '", in_file, "'..."
+        print >> sys.stderr, "## Loading BED file '", in_file, "'..."
     nline = 0
     with open(in_file) as bed_handle:
         for line in bed_handle:
+            if nline%1000000==0 and verbose: print >> sys.stderr, "%d million lines loaded" % int(nline/1000000)
             nline +=1
             bedtab = line.split("\t")
             try:
                 chromosome, start, end, name = bedtab[:4]
             except ValueError:
-                print "Warning : wrong input format in line", nline,". Not a BED file !?"
+                print >> sys.stderr, "Warning : wrong input format in line", nline,". Not a BED file !?"
                 continue
             
             # BED files are zero-based as Intervals objects
@@ -125,7 +127,7 @@ def get_overlapping_fragment(frag, chrom, pos, quiet=False):
         else:
             return ifrag[0]
     else:
-        if not quit: print >> sys.stderr, "Warning - no fragments found for read at", chrom, ":", pos, "- skipped"
+        if not quiet: print >> sys.stderr, "Warning - no fragments found for read at", chrom, ":", pos, "- skipped"
         return None
 
 
@@ -133,7 +135,7 @@ if __name__ == "__main__":
     # Read command line arguments
     opts = get_args()
     verbose = False
-    outputDir = "."
+    output = None
     exclusionSize = 0
 
     if len(opts) == 0:
@@ -152,8 +154,8 @@ if __name__ == "__main__":
             targetFile = arg
         elif opt in ("-e", "--exclusion"):
             exclusionSize = arg
-        elif opt in ("-o", "--outputDir"):
-            outputDir = arg
+        elif opt in ("-o", "--output"):
+            output = arg
         elif opt in ("-v", "--verbose"):
             verbose = True
         else:
@@ -161,21 +163,24 @@ if __name__ == "__main__":
 
     # Verbose mode
     if verbose:
-        print "## make_viewpoints.py"
-        print "## validPairsFile=", validPairsFile
-        print "## fragmentFile=", fragmentFile
-        print "## targetFile=", targetFile
-        print "## exclusionSize=", exclusionSize
-        print "## verbose=", verbose, "\n"
+        print  >> sys.stderr, "## make_viewpoints.py"
+        print  >> sys.stderr, "## validPairsFile=", validPairsFile
+        print  >> sys.stderr, "## fragmentFile=", fragmentFile
+        print  >> sys.stderr, "## targetFile=", targetFile
+        print  >> sys.stderr, "## exclusionSize=", exclusionSize
+        print  >> sys.stderr, "## verbose=", verbose, "\n"
 
 
     # Read the BED files
+    if verbose:
+        print  >> sys.stderr, "## Loading data ..."
+
     resFrag = load_BED(fragmentFile, verbose)[0]
     (target, exclu) =  load_BED(targetFile, exclusionSize=exclusionSize, verbose=verbose)
 
     # Read the validPairs file
     if verbose:
-        print "## Opening file '", validPairsFile, "'..."
+        print  >> sys.stderr, "## Opening file '", validPairsFile, "'..."
    
     nline = 0
     repdict = {}
@@ -187,6 +192,7 @@ if __name__ == "__main__":
     exclu_counter = 0
 
     with open(validPairsFile) as in_handle:
+        if nline%1000000==0 and verbose: print >> sys.stderr, "%d million lines processed" % int(nline/1000000)
         for line in in_handle:
             nline +=1
             intab = line.split("\t")
@@ -251,6 +257,9 @@ if __name__ == "__main__":
     in_handle.close()
 
     ## Write
+    if output is not None:
+        sys.stdout = open(output, 'w')
+
     for k in repdict:
         print "track type=bedGraph name='hicpro "+ k +"' description='hicpro "+ k +"' visibility=full color=200,100,0 altColor=0,100,200 priority=20"
         for key, value in repdict[k].iteritems():
