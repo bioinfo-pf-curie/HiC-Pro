@@ -40,8 +40,11 @@ unset FASTQFILE
 ## Define input files
 if [[ $MAKE_OPTS == "" || $MAKE_OPTS == *"mapping"* ]]
 then
+    input_data_type=$(get_data_type)
     inputfile=inputfiles_${JOB_NAME}.txt
-    get_hic_files $RAW_DIR .fastq | grep $PAIR1_EXT | sed -e "s|$RAW_DIR||" -e "s|^/||" > $inputfile
+    ifq=$(get_hic_files $RAW_DIR .fq)
+    ifastq=$(get_hic_files $RAW_DIR .fastq)
+    echo -e "$ifq\n$ifastq" | grep $PAIR1_EXT | sed -e "s|$RAW_DIR||" -e "s|^/||" > $inputfile
     count=$(cat $inputfile | wc -l)
 elif [[ $MAKE_OPTS == *"proc_hic"* ]]
 then
